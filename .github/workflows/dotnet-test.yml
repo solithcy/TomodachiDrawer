@@ -40,14 +40,10 @@ jobs:
       with:
         dotnet-version: '10.0.x'
         cache: true
-        cache-dependency-path: '**/*.csproj'
+        cache-dependency-path: '**/*.csproj' 
     - name: Build
       working-directory: TomodachiDrawer.UI.Avalonia
-      run: dotnet publish --configuration ${{ matrix.configuration }} -r ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-    - name: Compress with UPX
-      if: ${{ !startsWith(matrix.runtime, 'osx') }}
-      run:
-        upx --best TomodachiDrawer.UI.Avalonia/bin/${{ matrix.configuration }}/net10.0/${{ matrix.runtime }}/publish/TomodachiDrawer*
+      run: dotnet publish --configuration ${{ matrix.configuration }} -r ${{ matrix.runtime }} --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=true
     - name: Upload Artifacts
       uses: actions/upload-artifact@v7
       with:
