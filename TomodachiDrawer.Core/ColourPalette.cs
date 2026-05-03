@@ -185,7 +185,7 @@ namespace TomodachiDrawer.Core
         public PaletteColour?[,] QuantizeImage(SKBitmap source, QuantizerSettings quantizerSettings)
         {
             int width = source.Width, height = source.Height;
-            
+
             if (quantizerSettings.quantizerName == "Arbitrary")
             {
                 if (quantizerSettings.colourCount == null)
@@ -272,6 +272,15 @@ namespace TomodachiDrawer.Core
             return outputLayers;
         }
 
+        static float SrgbToLinear(byte c)
+        {
+            float f = c / 255f;
+            return f <= 0.04045f ? f / 12.92f : MathF.Pow((f + 0.055f) / 1.055f, 2.4f);
+        }
+
+        private bool _slotInitialized;
+        private (int hue, int lcX, int lcY) _slotState;
+
         public void SelectColour(PaletteColour target, double speed)
         {
             _output.Tap(Button.Y, speed, speed);
@@ -317,10 +326,40 @@ namespace TomodachiDrawer.Core
             }
             else
             {
-                // TODO: PICKUP HERE IN MORNING
-                // Ideally this should be able to go back and forth between arbitrary or preset colours but
-                // not needed for initial implementation if its a pain.
-                throw new NotImplementedException();
+                if (!_slotInitialized)
+                {
+                    _slotInitialized = true;
+                    _output.Tap(Button.R, speed, speed);
+                    _output.Delay(300);
+                    _slotState = (0, 0, 112);
+                }
+
+                new SKColor(target.R, target.G, target.B).ToHsv(out float hDeg, out float s, out float v);
+                v /= 100f; // ToHsv returns 0–100, normalise to 0–1
+                s /= 100f;
+
+                int targetHue = ((int)Math.Round((360.0 - hDeg) / 360.0 * 200)) % 200;
+                int targetLcX = (int)Math.Round(s * 210);
+                int targetLcY = (int)Math.Round((1 - v) * 112);
+                Console.WriteLine($"{targetHue}/200 ({targetHue}) {targetLcX}/210 ({s}) {targetLcY}/112 ({v})");
+
+                var (lastHue, lastLcX, lastLcY) = _slotState;
+
+                int hueDelta = targetHue - lastHue;
+                for (int i = 0; i < Math.Abs(hueDelta); i++)
+                    _output.Tap(hueDelta > 0 ? Button.ZR : Button.ZL, speed, speed);
+
+                int lcDeltaX = targetLcX - lastLcX;
+                int lcDeltaY = targetLcY - lastLcY;
+                for (int i = 0; i < Math.Abs(lcDeltaX); i++)
+                    _output.Tap(lcDeltaX > 0 ? DPad.RIGHT : DPad.LEFT, speed, speed);
+                for (int i = 0; i < Math.Abs(lcDeltaY); i++)
+                    _output.Tap(lcDeltaY > 0 ? DPad.DOWN : DPad.UP, speed, speed);
+
+                _slotState = (targetHue, targetLcX, targetLcY);
+
+                _output.Tap(Button.A, speed, speed);
+                _output.Delay(300);
             }
         }
     }
