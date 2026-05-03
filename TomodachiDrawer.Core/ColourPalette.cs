@@ -272,32 +272,29 @@ namespace TomodachiDrawer.Core
             return outputLayers;
         }
 
-        static void RgbToHsb(byte R, byte G, byte B, out float hDeg, out float s, out float v)
+        
+        // Reference: https://docs.google.com/spreadsheets/d/1mifABCx_d8bwYTh0z7Q5uNsGbHYn1H_POUlwUms8Tu8/edit?gid=0#gid=0
+        static void RgbToGameHsv(byte R, byte G, byte B, out float hueDeg, out float sat, out float val)
         {
-            float r = R / 255f, g = G / 255f, b = B / 255f;
-            float max = MathF.Max(r, MathF.Max(g, b));
-            float min = MathF.Min(r, MathF.Min(g, b));
-            float delta = max - min;
+            float r = R, g = G, b = B;
 
-            v = max;
+            float max    = MathF.Max(r, MathF.Max(g, b));
+            float min    = MathF.Min(r, MathF.Min(g, b));
+            float median = r + g + b - max - min;
 
-            if (delta == 0f)
-            {
-                hDeg = 0f;
-                s = 0f;
-                return;
-            }
+            int sector;
+            if      (min == g) sector = (median == b) ? 0 : 1;
+            else if (min == r) sector = (median == g) ? 2 : 3;
+            else               sector = (median == r) ? 4 : 5; 
 
-            s = delta / max;
+            float f       = (max == min) ? 0f : (median - min) / (max - min);
+            float fCurved = 1f - MathF.Sqrt(1f - f);
 
-            float h;
-            if      (max == r) h = ((g - b) / delta) % 6f;
-            else if (max == g) h = (b - r) / delta + 2f;
-            else               h = (r - g) / delta + 4f;
+            float hPos = (sector % 2 == 0 ? fCurved : 1f - fCurved) + sector;
+            hueDeg = hPos * 60f;
 
-            h *= 60f;
-            if (h < 0f) h += 360f;
-            hDeg = h;
+            sat = (max == 0f) ? 0f : MathF.Pow(1f - MathF.Pow(min / max, 2f), 2f) * 100f;
+            val = MathF.Pow(max / 255f, 2f) * 100f;
         }
 
         private bool _slotInitialized;
@@ -353,17 +350,18 @@ namespace TomodachiDrawer.Core
                     _slotInitialized = true;
                     _output.Tap(Button.R, speed, speed);
                     _output.Delay(300);
-                    _slotState = (0, 0, 112);
+                    _slotState = (0, 0, 110);
                 }
+                
 
                 Console.WriteLine($"SelectColour input rgb=({target.R},{target.G},{target.B}) IsArbitrary={target.IsArbitrary}");
-                RgbToHsb(target.R, target.G, target.B, out float hDeg, out float s, out float v);
-                Console.WriteLine($"  → hsb=({hDeg:0.0}°, {s:0.000}, {v:0.000})");
+                RgbToGameHsv(target.R, target.G, target.B, out float hDeg, out float s, out float v);
 
-                int targetHue = ((int)Math.Round((360.0 - hDeg) / 360.0 * 200)) % 200;
-                int targetLcX = (int)Math.Round(s * 212);
-                int targetLcY = (int)Math.Round((1 - v) * 112);
-                Console.WriteLine($"{targetHue}/200 ({targetHue}) {targetLcX}/212 ({s}) {targetLcY}/112 ({v})");
+                int targetHue  = (int)MathF.Round(hDeg / 360f * 201f) % 201;
+                int targetLcX  = (int)MathF.Round(s / 100f * 212f);
+                int targetLcY  = (int)MathF.Round((1f - v / 100f) * 110f);
+                Console.WriteLine($"  → hsb=({hDeg:0.0}°, {s:0.000}, {v:0.000})");
+                Console.WriteLine($"{targetHue}/201 ({targetHue}) {targetLcX}/212 ({s}) {targetLcY}/110 ({v})");
 
                 var (lastHue, lastLcX, lastLcY) = _slotState;
 
