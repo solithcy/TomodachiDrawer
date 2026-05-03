@@ -339,10 +339,23 @@ namespace TomodachiDrawer.Core
             }
             else
             {
-                if (!_lastWasArbitrary)
+                if (_lastWasArbitrary)
                 {
-                    _output.Tap(Button.R);
+                    // this resets the SV to the bottom left and the H to the left
+                    _output.Tap(Button.L);
+                    _output.Tap(DPad.RIGHT, speed, speed);
+                    _output.Tap(DPad.UP, speed, speed);
+                    _output.Tap(Button.Y, speed, speed);
+                    _output.Delay(150);
+                    _output.Tap(Button.Y, speed, speed);
+                    _output.Delay(150);
                 }
+                else
+                {
+                    _lastWasArbitrary = true;
+                }
+
+                _output.Tap(Button.R);
 
                 // TLDR: The RGB needs to be Linearized from sRGB then turned to HSV.
                 // This seemingly is a 1:1 match.
@@ -358,19 +371,6 @@ namespace TomodachiDrawer.Core
                 int satSteps = (int)Math.Round((1.0f - s) * (FCR_SATURATION_STEP_COUNT - 1));
                 int valSteps = (int)Math.Round((1.0f - v) * (FCR_VALUE_STEP_COUNT - 1));
 
-                // Determine which way we home for shorter travel.
-                // If we are past the halfway point, use the opposite side.
-                bool hueHomeLeft = hueSteps <= (FCR_HUE_SLIDER_STEP_COUNT - 1) / 2;
-                bool satHomeRight = satSteps <= (FCR_SATURATION_STEP_COUNT - 1) / 2;
-                bool valHomeTop = valSteps <= (FCR_VALUE_STEP_COUNT - 1) / 2;
-
-                // Use stick for quicker homing
-                _output.SetStick(Stick.LX, satHomeRight ? (byte)255 : (byte)0);
-                _output.SetStick(Stick.LY, valHomeTop ? (byte)0 : (byte)255);
-                _output.Press(hueHomeLeft ? Button.ZL : Button.ZR); // Home by holding
-                _output.Delay(4250); // This delay is pretty much as low as it can be for handling the worst case (black)
-                _output.ReleaseAll();
-
                 // TODO: Hue inputs could be entered at the same time as sat/val (although sat/val can only be one of those at a time, no diagonals)
                 // This would require something like
                 // _output.Press(ZR);
@@ -381,16 +381,14 @@ namespace TomodachiDrawer.Core
                 // _output.Delay(25);
                 // to avoid the inherent delays of .Tap, this would negate compression savings of .Tap
                 // but for colour selection it would be fairly insignificant.
-                int hueInputs = hueHomeLeft ? hueSteps : (FCR_HUE_SLIDER_STEP_COUNT - 1) - hueSteps;
-                Button hueTapDirection = hueHomeLeft ? Button.ZR : Button.ZL;
+                int hueInputs = hueSteps;
+                Button hueTapDirection = Button.ZR;
 
-                int satInputs = satHomeRight
-                    ? satSteps
-                    : (FCR_SATURATION_STEP_COUNT - 1) - satSteps;
-                DPad satDirection = satHomeRight ? DPad.LEFT : DPad.RIGHT;
+                int satInputs = (FCR_SATURATION_STEP_COUNT - 1) - satSteps;
+                DPad satDirection = DPad.RIGHT;
 
-                int valInputs = valHomeTop ? valSteps : (FCR_VALUE_STEP_COUNT - 1) - valSteps;
-                DPad valDirection = valHomeTop ? DPad.DOWN : DPad.UP;
+                int valInputs = (FCR_VALUE_STEP_COUNT - 1) - valSteps;
+                DPad valDirection = DPad.UP;
 
                 for (int i = 0; i < hueInputs; i++)
                     _output.Tap(hueTapDirection);
