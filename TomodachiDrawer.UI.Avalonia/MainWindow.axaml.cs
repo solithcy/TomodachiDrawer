@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 using SkiaSharp;
@@ -131,11 +132,21 @@ public partial class MainWindow : Window
 
         if (img.Width > 256 || img.Height > 256)
         {
-            _ = ShowMessageAsync(
-                "Image too big",
-                $"{Path.GetFileName(path)} is too big! Max of 256x256."
-            );
-            return;
+            float scale = Math.Min(256f / img.Width, 256f / img.Height);
+            int newWidth = (int)(img.Width * scale);
+            int newHeight = (int)(img.Height * scale);
+
+            var resized = img.Resize(new SKImageInfo(newWidth, newHeight), new SKSamplingOptions(SKCubicResampler.CatmullRom));
+            img.Dispose();
+            img = resized;
+
+            string tempPath = Path.Combine(Path.GetTempPath(), $"tomodachi_{Path.GetFileName(path)}");
+            using var data = SKImage.FromBitmap(img).Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = File.OpenWrite(tempPath);
+            data.SaveTo(stream);
+
+            path = tempPath;
+            AppendLog($"Image resized to {newWidth}x{newHeight}, saved to temp: {tempPath}");
         }
 
         _currentImagePath = path;
@@ -144,6 +155,7 @@ public partial class MainWindow : Window
         UpdatePreview();
         TSPTimeLimitUpDown.Value = (decimal)CanvasDrawer.GetRecommendedTSPSolveTime(img.Width, img.Height);
         AppendLog($"Loaded image: {Path.GetFileName(path)} ({img.Width}x{img.Height})");
+        img.Dispose();
     }
 
     private void UpdatePreview()
@@ -519,7 +531,7 @@ public partial class MainWindow : Window
                 + "- Set your cursor to the TOP LEFT of where you want the drawing to be.\r\n"
                 + "- Ensure the full area of the canvas that will be drawn is on screen.\r\n\r\n"
                 + "If the canvas is zoomed in, it will cause the cursor to desync as the canvas moves when the cursor gets on the edges. Zooming out fully avoids this.\r\n\r\n"
-                + "If your image is 256x256, set it all the way in the top left. If your image is smaller, set your cursor to where you want the topleft most pixel of your drawing to be."
+                + "If your image is 256x256 or larger, set it all the way in the top left. If your image is smaller, set your cursor to where you want the topleft most pixel of your drawing to be."
         );
     }
 
@@ -543,4 +555,22 @@ public partial class MainWindow : Window
     }
 
     private void ColourLimitUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e) => UpdatePreview();
+
+    private void AppThemeComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        // Why does avalonia call this before AppThemeComboBox exists?? lol
+        if (AppThemeComboBox == null)
+            return;
+        var desiredTheme = AppThemeComboBox.SelectedIndex switch
+        {
+            1 => ThemeVariant.Light,
+            2 => ThemeVariant.Dark,
+            _ => ThemeVariant.Default,
+        };
+
+        if (Application.Current is { } app)
+        {
+            app.RequestedThemeVariant = desiredTheme;
+        }
+    }
 }
