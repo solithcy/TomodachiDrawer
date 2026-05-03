@@ -1,4 +1,4 @@
-﻿using System.Runtime.InteropServices;
+using System.Runtime.InteropServices;
 using SkiaSharp;
 using TomodachiDrawer.Core.ImageProcessing;
 using TomodachiDrawer.Core.ImageProcessing.Denoising;
@@ -272,10 +272,32 @@ namespace TomodachiDrawer.Core
             return outputLayers;
         }
 
-        static float SrgbToLinear(byte c)
+        static void RgbToHsb(byte R, byte G, byte B, out float hDeg, out float s, out float v)
         {
-            float f = c / 255f;
-            return f <= 0.04045f ? f / 12.92f : MathF.Pow((f + 0.055f) / 1.055f, 2.4f);
+            float r = R / 255f, g = G / 255f, b = B / 255f;
+            float max = MathF.Max(r, MathF.Max(g, b));
+            float min = MathF.Min(r, MathF.Min(g, b));
+            float delta = max - min;
+
+            v = max;
+
+            if (delta == 0f)
+            {
+                hDeg = 0f;
+                s = 0f;
+                return;
+            }
+
+            s = delta / max;
+
+            float h;
+            if      (max == r) h = ((g - b) / delta) % 6f;
+            else if (max == g) h = (b - r) / delta + 2f;
+            else               h = (r - g) / delta + 4f;
+
+            h *= 60f;
+            if (h < 0f) h += 360f;
+            hDeg = h;
         }
 
         private bool _slotInitialized;
@@ -334,14 +356,14 @@ namespace TomodachiDrawer.Core
                     _slotState = (0, 0, 112);
                 }
 
-                new SKColor(target.R, target.G, target.B).ToHsv(out float hDeg, out float s, out float v);
-                v /= 100f; // ToHsv returns 0–100, normalise to 0–1
-                s /= 100f;
+                Console.WriteLine($"SelectColour input rgb=({target.R},{target.G},{target.B}) IsArbitrary={target.IsArbitrary}");
+                RgbToHsb(target.R, target.G, target.B, out float hDeg, out float s, out float v);
+                Console.WriteLine($"  → hsb=({hDeg:0.0}°, {s:0.000}, {v:0.000})");
 
                 int targetHue = ((int)Math.Round((360.0 - hDeg) / 360.0 * 200)) % 200;
-                int targetLcX = (int)Math.Round(s * 210);
+                int targetLcX = (int)Math.Round(s * 212);
                 int targetLcY = (int)Math.Round((1 - v) * 112);
-                Console.WriteLine($"{targetHue}/200 ({targetHue}) {targetLcX}/210 ({s}) {targetLcY}/112 ({v})");
+                Console.WriteLine($"{targetHue}/200 ({targetHue}) {targetLcX}/212 ({s}) {targetLcY}/112 ({v})");
 
                 var (lastHue, lastLcX, lastLcY) = _slotState;
 
