@@ -342,6 +342,7 @@ public partial class MainWindow : Window
         var imagePath = _currentImagePath;
         var denoiser = DenoisingComboBox.SelectedItem?.ToString();
         var tspLimit = (float)(TSPTimeLimitUpDown.Value ?? 0.5m);
+        var settings = GetQuantizerSettings();
 
         ExportRP2040Button.IsEnabled = false;
         TimeSpan totalTime = TimeSpan.MaxValue;
@@ -358,7 +359,6 @@ public partial class MainWindow : Window
             var drawer = new CanvasDrawer(timingSink, AppendLog);
             drawer.ConnectAndConfirmController();
             AppendLog("Starting to generate inputs...");
-            var settings = GetQuantizerSettings();
             await drawer.DrawImage(SKBitmap.Decode(imagePath), settings, denoiser, tspLimit, false);
             AppendLog($"True complete overall time is: {timingSink.TotalTime.TotalSeconds}s");
 
@@ -414,6 +414,7 @@ public partial class MainWindow : Window
         var imagePath = _currentImagePath;
         var denoiser = DenoisingComboBox.SelectedItem?.ToString();
         var tspLimit = (float)(TSPTimeLimitUpDown.Value ?? 0.5m);
+        var settings = GetQuantizerSettings();
 
         ExportUF2Button.IsEnabled = false;
         TimeSpan totalTime = TimeSpan.MaxValue;
@@ -430,7 +431,6 @@ public partial class MainWindow : Window
             var drawer = new CanvasDrawer(timingSink, AppendLog);
             drawer.ConnectAndConfirmController();
             AppendLog("Starting to generate inputs...");
-            var settings = GetQuantizerSettings();
             await drawer.DrawImage(SKBitmap.Decode(imagePath), settings, denoiser, tspLimit, false);
             AppendLog($"True complete overall time is: {timingSink.TotalTime.TotalSeconds}s");
 
